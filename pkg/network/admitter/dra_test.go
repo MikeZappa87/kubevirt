@@ -161,16 +161,22 @@ var _ = Describe("Validate network DRA", func() {
 		Expect(causes).To(Equal(expectedCauses))
 	})
 
-	DescribeTable("should reject DRA network with core interface binding",
+	It("should accept DRA network with bridge binding", func() {
+		spec := newDRASpec()
+		spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "dra-net", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{networkDRAEnabled: true})
+		Expect(validator.Validate()).To(BeEmpty())
+	})
+
+	DescribeTable("should reject DRA network with unsupported core interface binding",
 		func(iface v1.Interface) {
 			spec := newDRASpec()
 			iface.Name = "dra-net"
 			spec.Domain.Devices.Interfaces = []v1.Interface{iface}
 			validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{networkDRAEnabled: true})
 			causes := validator.Validate()
-			Expect(causes).To(ContainElement(HaveField("Message", `DRA network "dra-net" requires a binding plugin interface`)))
+			Expect(causes).To(ContainElement(HaveField("Message", `DRA network "dra-net" requires bridge or a binding plugin interface`)))
 		},
-		Entry("bridge", v1.Interface{InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}),
 		Entry("masquerade", v1.Interface{InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}}),
 		Entry("SR-IOV", v1.Interface{InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}}),
 		Entry("passtBinding", v1.Interface{InterfaceBindingMethod: v1.InterfaceBindingMethod{PasstBinding: &v1.InterfacePasstBinding{}}}),

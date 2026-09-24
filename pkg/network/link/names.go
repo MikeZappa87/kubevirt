@@ -32,6 +32,9 @@ import (
 const tapNameForPrimaryIface = "tap0"
 
 func GenerateTapDeviceName(podInterfaceName string, network v1.Network) string {
+	if vmispec.IsDRANetwork(network) {
+		return "tap" + namescheme.GenerateHashedInterfaceName(network.Name)[3:]
+	}
 	if vmispec.IsSecondaryMultusNetwork(network) {
 		return "tap" + podInterfaceName[3:]
 	}

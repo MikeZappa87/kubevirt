@@ -651,7 +651,8 @@ func createNetworkNameScheme(networks []v1.Network, ifaceStatuses []v1.VirtualMa
 		podIfaceNamesByNetworkName = namescheme.CreateHashedNetworkNameScheme(networks)
 	}
 
-	return namescheme.UpdatePrimaryPodIfaceNameFromVMIStatus(podIfaceNamesByNetworkName, networks, ifaceStatuses)
+	podIfaceNamesByNetworkName = namescheme.UpdatePrimaryPodIfaceNameFromVMIStatus(podIfaceNamesByNetworkName, networks, ifaceStatuses)
+	return namescheme.UpdateDRAPodIfaceNamesFromVMIStatus(podIfaceNamesByNetworkName, networks, ifaceStatuses)
 }
 
 func includesOrdinalNames(ifaces []nmstate.Interface) bool {

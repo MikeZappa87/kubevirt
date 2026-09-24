@@ -181,6 +181,13 @@ var _ = Describe("Network Name Scheme", func() {
 	})
 
 	Context("HashedPodInterfaceName", func() {
+		It("resolves DRA interfaces only from status without falling back to eth0", func() {
+			network := virtv1.Network{Name: "dra", NetworkSource: virtv1.NetworkSource{ResourceClaim: &virtv1.ClaimRequest{ClaimName: "claim", RequestName: "net"}}}
+			statuses := []virtv1.VirtualMachineInstanceNetworkInterface{{Name: "dra", PodInterfaceName: "vlan110"}}
+			Expect(namescheme.HashedPodInterfaceName(network, nil)).To(BeEmpty())
+			Expect(namescheme.HashedPodInterfaceName(network, statuses)).To(Equal("vlan110"))
+			Expect(namescheme.UpdateDRAPodIfaceNamesFromVMIStatus(map[string]string{"default": "eth0"}, []virtv1.Network{network}, statuses)).To(Equal(map[string]string{"default": "eth0", "dra": "vlan110"}))
+		})
 		DescribeTable("should return the given network name's hashed pod interface name",
 			func(network virtv1.Network, expectedPodIfaceName string) {
 				Expect(namescheme.HashedPodInterfaceName(network, []virtv1.VirtualMachineInstanceNetworkInterface{})).To(Equal(expectedPodIfaceName))

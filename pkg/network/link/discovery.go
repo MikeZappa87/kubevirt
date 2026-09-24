@@ -30,6 +30,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/network/driver"
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
+	"kubevirt.io/kubevirt/pkg/network/vmispec"
 )
 
 // DiscoverByNetwork return the pod interface link of the given network name.
@@ -47,6 +48,12 @@ func DiscoverByNetwork(handler driver.NetworkHandler, networks []v1.Network, sub
 
 func networkInterfaceNames(networks []v1.Network, subjectNetwork v1.Network, ifaceStatuses []v1.VirtualMachineInstanceNetworkInterface) ([]string, error) {
 	ifaceName := namescheme.HashedPodInterfaceName(subjectNetwork, ifaceStatuses)
+	if vmispec.IsDRANetwork(subjectNetwork) {
+		if ifaceName == "" {
+			return nil, fmt.Errorf("DRA network %q has no resolved pod interface name", subjectNetwork.Name)
+		}
+		return []string{ifaceName}, nil
+	}
 	ordinalIfaceName := namescheme.OrdinalPodInterfaceName(subjectNetwork.Name, networks)
 	if ordinalIfaceName == "" {
 		return nil, fmt.Errorf("could not find the pod interface ordinal name for network [%s]", subjectNetwork.Name)

@@ -32,6 +32,16 @@ var _ = Describe("Common Methods", func() {
 	const maxInterfaceNameLength = 15
 
 	Context("GenerateTapDeviceName function", func() {
+		It("uses stable, distinct TAP names for DRA networks with arbitrary pod link names", func() {
+			a := v1.Network{Name: "a", NetworkSource: v1.NetworkSource{ResourceClaim: &v1.ClaimRequest{}}}
+			b := a
+			b.Name = "b"
+			tap := virtnetlink.GenerateTapDeviceName("vlan110", a)
+			Expect(tap).NotTo(Equal("tap0"))
+			Expect(tap).NotTo(Equal(virtnetlink.GenerateTapDeviceName("vlan110", b)))
+			Expect(tap).To(Equal(virtnetlink.GenerateTapDeviceName("net1", a)))
+			Expect(len(tap)).To(BeNumerically("<=", maxInterfaceNameLength))
+		})
 		DescribeTable("Should return tap0 for the primary network", func(network v1.Network) {
 			Expect(virtnetlink.GenerateTapDeviceName("eth0", network)).To(Equal("tap0"))
 		},

@@ -59,6 +59,18 @@ var _ = Describe("Pod Network", func() {
 		Expect(os.RemoveAll(tmpDir)).To(Succeed())
 	})
 
+	It("uses a precreated DRA TAP as the domain target", func() {
+		const name = "driver-tap"
+		network := v1.Network{Name: "dra", NetworkSource: v1.NetworkSource{ResourceClaim: &v1.ClaimRequest{ClaimName: "network", RequestName: "net"}}}
+		iface := v1.Interface{Name: "dra", Binding: &v1.PluginBinding{Name: "tap"}}
+		domain := NewDomainInterface("dra")
+		mockNetwork.EXPECT().LinkByName(name).Return(&netlink.GenericLink{LinkAttrs: netlink.LinkAttrs{Name: name, MTU: 1500, HardwareAddr: fakeMac}}, nil)
+		mockNetwork.EXPECT().LinkByName(gomock.Not(name)).Return(nil, netlink.LinkNotFoundError{})
+		generator := NewTapLibvirtSpecGenerator(&iface, network, domain, name, mockNetwork)
+		Expect(generator.Generate()).To(Succeed())
+		verifyTapDomain(domain.Spec.Devices.Interfaces, name, "1500", fakeMac.String())
+	})
+
 	Context("on successful setup", func() {
 		Context("tap generator", func() {
 			const primaryPodIfaceName = "eth0"
