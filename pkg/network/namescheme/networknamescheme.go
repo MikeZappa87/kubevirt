@@ -66,6 +66,9 @@ func HashedPodInterfaceName(network v1.Network, ifaceStatuses []v1.VirtualMachin
 		return primaryIfaceStatus.PodInterfaceName
 	}
 
+	if vmispec.IsDRANetwork(network) {
+		return ""
+	}
 	return PrimaryPodInterfaceName
 }
 
@@ -197,4 +200,21 @@ func HasOrdinalSecondaryIfaces(
 	// Naming scheme is unknown - therefore assume the most conservative option:
 	// This VMI has a pod which uses an ordinal network naming scheme.
 	return true
+}
+
+// UpdateDRAPodIfaceNamesFromVMIStatus uses the allocation's reported link names,
+// independently of Multus ordinal/hashed naming conventions.
+func UpdateDRAPodIfaceNamesFromVMIStatus(names map[string]string, networks []v1.Network, statuses []v1.VirtualMachineInstanceNetworkInterface) map[string]string {
+	result := maps.Clone(names)
+	if result == nil {
+		result = map[string]string{}
+	}
+	for _, network := range networks {
+		if vmispec.IsDRANetwork(network) {
+			if status := vmispec.LookupInterfaceStatusByName(statuses, network.Name); status != nil && status.PodInterfaceName != "" {
+				result[network.Name] = status.PodInterfaceName
+			}
+		}
+	}
+	return result
 }

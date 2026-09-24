@@ -58,6 +58,15 @@ var _ = Describe("DiscoverByNetwork", func() {
 		mockNetworkHandler = netdriver.NewMockNetworkHandler(ctrl)
 	})
 
+	It("discovers a DRA link from status without probing eth0 or ordinal names", func() {
+		network := v1.Network{Name: "dra", NetworkSource: v1.NetworkSource{ResourceClaim: &v1.ClaimRequest{}}}
+		mockNetworkHandler.EXPECT().LinkByName("vlan110").Return(&netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Name: "vlan110"}}, nil)
+		link, err := DiscoverByNetwork(mockNetworkHandler, []v1.Network{network}, network, []v1.VirtualMachineInstanceNetworkInterface{{Name: "dra", PodInterfaceName: "vlan110"}})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(link.Attrs().Name).To(Equal("vlan110"))
+		_, err = DiscoverByNetwork(mockNetworkHandler, []v1.Network{network}, network, nil)
+		Expect(err).To(MatchError(ContainSubstring("no resolved pod interface")))
+	})
 	It("should fail when the given no networks", func() {
 		_, err := DiscoverByNetwork(mockNetworkHandler, nil, v1.Network{Name: "ensp1f2"}, nil)
 

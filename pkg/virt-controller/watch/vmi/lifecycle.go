@@ -413,6 +413,13 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 
 				// Network
 				if err := c.updateNetworkStatus(vmiCopy, pod); err != nil {
+					// DRA managed TAP setup requires the resolved pod interface
+					// before virt-handler starts configuring the network.
+					for _, network := range vmiCopy.Spec.Networks {
+						if network.ResourceClaim != nil {
+							return err
+						}
+					}
 					log.Log.Errorf("failed to update the interface status: %v", err)
 				}
 

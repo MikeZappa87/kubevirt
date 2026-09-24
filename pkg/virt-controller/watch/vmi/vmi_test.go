@@ -1505,6 +1505,22 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			expectVMIFailedState(vmi)
 		})
 
+		It("retries DRA network status resolution before handing the VMI to virt-handler", func() {
+			vmi := newPendingVirtualMachine("testvmi")
+			setReadyCondition(vmi, k8sv1.ConditionFalse, virtv1.GuestNotRunningReason)
+			vmi.Status.Phase = virtv1.Scheduling
+			vmi.Spec.Networks = []virtv1.Network{{Name: "dra", NetworkSource: virtv1.NetworkSource{ResourceClaim: &virtv1.ClaimRequest{ClaimName: "network", RequestName: "net"}}}}
+			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
+			pod.Status.ContainerStatuses = []k8sv1.ContainerStatus{{Name: "compute", State: k8sv1.ContainerState{Running: &k8sv1.ContainerStateRunning{}}}}
+			addVirtualMachine(vmi)
+			addPod(pod)
+			controller.updateNetworkStatus = func(*virtv1.VirtualMachineInstance, *k8sv1.Pod) error {
+				return fmt.Errorf("waiting for networkData.interfaceName")
+			}
+			sanityExecute()
+			expectVMIBeInPhase(vmi.Namespace, vmi.Name, virtv1.Scheduling)
+			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(1))
+		})
 		DescribeTable("should hand over pod to virt-handler if pod is ready and running", func(containerStatus []k8sv1.ContainerStatus) {
 			vmi := newPendingVirtualMachine("testvmi")
 			setReadyCondition(vmi, k8sv1.ConditionFalse, virtv1.GuestNotRunningReason)

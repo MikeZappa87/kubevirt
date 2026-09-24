@@ -1821,6 +1821,26 @@ var _ = Describe("netpod", func() {
 	When("binding plugin with managedTap domainAttachmentType", func() {
 		const managedTap = "managed-tap"
 
+		DescribeTable("sets up DRA managed TAP using the reported interface", func(podName string) {
+			network := v1.Network{Name: "dra", NetworkSource: v1.NetworkSource{ResourceClaim: &v1.ClaimRequest{ClaimName: "claim", RequestName: "net"}}}
+			stub := nmstateStub{status: nmstate.Status{Interfaces: []nmstate.Interface{{Name: podName, Index: 7, TypeName: nmstate.TypeVETH, State: nmstate.IfaceStateUp, MacAddress: "02:00:00:00:00:01", MTU: 1500}}}}
+			n := netpod.NewNetPod([]v1.Network{network}, []v1.Interface{{Name: "dra", Binding: &v1.PluginBinding{Name: managedTap}}}, vmiUID, 0, 0, 0, state,
+				netpod.WithNMStateAdapter(&stub), netpod.WithCacheCreator(&baseCacheCreator),
+				netpod.WithBindingPlugins(map[string]v1.InterfaceBindingPlugin{managedTap: {DomainAttachmentType: v1.ManagedTap}}),
+				netpod.WithVMIIfaceStatuses([]v1.VirtualMachineInstanceNetworkInterface{{Name: "dra", PodInterfaceName: podName}}))
+			Expect(n.Setup()).To(Succeed())
+			Expect(stub.spec.Interfaces).To(HaveLen(4))
+			Expect(stub.spec.Interfaces[0].Name).To(Equal("k6t-" + podName))
+			Expect(stub.spec.Interfaces[1].Name).To(Equal(podName + "-nic"))
+			Expect(stub.spec.Interfaces[1].Index).To(Equal(7))
+			Expect(stub.spec.Interfaces[2].TypeName).To(Equal(nmstate.TypeTap))
+			Expect(stub.spec.Interfaces[2].Name).NotTo(Equal("tap0"))
+			Expect(stub.spec.Interfaces[2].Controller).To(Equal("k6t-" + podName))
+			Expect(stub.spec.Interfaces[3].Name).To(Equal(podName))
+			Expect(stub.spec.Interfaces[3].TypeName).To(Equal(nmstate.TypeDummy))
+			Expect(n.Setup()).To(Succeed())
+		}, Entry("ordinal interface", "net1"), Entry("arbitrary interface", "vlan110"))
+
 		It("fails setup config when pod interface is missing", func() {
 			netPod := netpod.NewNetPod(
 				[]v1.Network{*v1.DefaultPodNetwork()},
